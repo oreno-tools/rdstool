@@ -77,7 +77,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Printf("%scluster: \x1b[42m%s\x1b[0m\tparameter group: \x1b[42m%s\x1b[0m\n", sushi, clusterName, paramGroup)
+	fmt.Printf("%scluster: \x1b[31m%s\x1b[0m\tparameter group: \x1b[31m%s\x1b[0m\n", sushi, clusterName, paramGroup)
 
 	dbInstances := getClusterInstances(clusterName)
 
@@ -99,7 +99,7 @@ func main() {
 
 	if *argFailover {
 		targetDBInstance := selectFailoverTarget(dbInstances)
-		fmt.Printf("%s DB クラスタ \x1b[41m%s\x1b[0m をフェイルーバーします. フェイルオーバー先は \x1b[41m%s\x1b[0m です.\n", mega, clusterName, targetDBInstance)
+		fmt.Printf("%s DB クラスタ \x1b[31m%s\x1b[0m をフェイルーバーします. フェイルオーバー先は \x1b[31m%s\x1b[0m です.\n", mega, clusterName, targetDBInstance)
 		fmt.Printf("処理を継続しますか? (y/n): ")
 		var stdin string
 		fmt.Scan(&stdin)
@@ -112,7 +112,7 @@ func main() {
 			}
 			fmt.Printf("DB クラスタのフェイルオーバー実行中")
 			for {
-				st, _ := getInstanceStatus(targetDBInstance)
+				st, _, _ := getInstanceStatus(targetDBInstance)
 				dbInstances := getClusterInstances(clusterName)
 				w := getWriteInstance(dbInstances)
 				if st == "available" && w == targetDBInstance {
@@ -138,7 +138,7 @@ func main() {
 		} else {
 			restartDBInstanceName = *argInstance
 		}
-		fmt.Printf("%s DB インタンス \x1b[41m%s\x1b[0m を再起動します.\n", mega, restartDBInstanceName)
+		fmt.Printf("%s DB インタンス \x1b[31m%s\x1b[0m を再起動します.\n", mega, restartDBInstanceName)
 		fmt.Printf("処理を継続しますか? (y/n): ")
 		var stdin string
 		fmt.Scan(&stdin)
@@ -151,7 +151,7 @@ func main() {
 			}
 			fmt.Printf("DB インスタンスを再起動中")
 			for {
-				st, _ := getInstanceStatus(restartDBInstanceName)
+				st, _, _ := getInstanceStatus(restartDBInstanceName)
 				if st == "available" {
 					fmt.Printf("\nDB インスタンス再起動完了.\n")
 					os.Exit(0)
@@ -182,7 +182,7 @@ func main() {
 			fmt.Println("DB パラメータの指定に誤りがあります. パラメータ名を確認して下さい.")
 			os.Exit(1)
 		}
-		fmt.Printf("%s DB パラメータ \x1b[41m%s\x1b[0m の値を \x1b[41m%s\x1b[0m に変更します.\n", mega, *argParamName, latest_value)
+		fmt.Printf("%s DB パラメータ \x1b[31m%s\x1b[0m の値を \x1b[31m%s\x1b[0m に変更します.\n", mega, *argParamName, latest_value)
 		fmt.Printf("処理を継続しますか? (y/n): ")
 		var stdin string
 		fmt.Scan(&stdin)
@@ -219,11 +219,11 @@ func printTable(data [][]string, t string) {
 	table := tablewriter.NewWriter(os.Stdout)
 	if t == "instance" {
 		// table.SetHeader([]string{"InstanceIdentifier", "InstanceStatus", "Writer", "ParameterApplyStatus", "ClusterParameterGroupStatus", "PromotionTier"})
-		table.SetHeader([]string{"InstanceIdentifier", "InstanceStatus", "Writer", "ParameterApplyStatus", "ClusterParameterGroupStatus"})
+		table.SetHeader([]string{"InstanceIdentifier", "InstanceStatus", "Writer", "InstanceClass", "ParameterApplyStatus", "ClusterParameterGroupStatus"})
 		for _, value := range data {
 			if value[2] == "true" {
 				for i, e := range value {
-					value[i] = fmt.Sprintf("\x1b[41m%s\x1b[0m", e)
+					value[i] = fmt.Sprintf("\x1b[31m%s\x1b[0m", e)
 				}
 			}
 			table.Append(value)
@@ -332,11 +332,12 @@ func getClusterInstances(clusterName string) [][]string {
 	var instances [][]string
 	for _, i := range result.DBClusters[0].DBClusterMembers {
 		// tier := strconv.FormatInt(*i.PromotionTier, 10)
-		st, ps := getInstanceStatus(*i.DBInstanceIdentifier)
+		st, cl, ps := getInstanceStatus(*i.DBInstanceIdentifier)
 		instance := []string{
 			*i.DBInstanceIdentifier,
 			st,
 			strconv.FormatBool(*i.IsClusterWriter),
+			cl,
 			ps,
 			*i.DBClusterParameterGroupStatus,
 			// tier,
@@ -398,7 +399,7 @@ func selectRestartTarget(dbInstances [][]string) string {
 	return result
 }
 
-func getInstanceStatus(dbInstance string) (string, string) {
+func getInstanceStatus(dbInstance string) (string, string, string) {
 	input := &rds.DescribeDBInstancesInput{
 		DBInstanceIdentifier: aws.String(dbInstance),
 	}
@@ -410,12 +411,13 @@ func getInstanceStatus(dbInstance string) (string, string) {
 		} else {
 			fmt.Println(err.Error())
 		}
-		return "", ""
+		return "", "", ""
 	}
 
 	st := *result.DBInstances[0].DBInstanceStatus
+	cl := *result.DBInstances[0].DBInstanceClass
 	ps := *result.DBInstances[0].DBParameterGroups[0].ParameterApplyStatus
-	return st, ps
+	return st, cl, ps
 }
 
 func modifyValue(paramGroup string, paramName string, paramValue string) {
