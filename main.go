@@ -98,7 +98,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	if !*argModify && *argClass != "" {
+	if *argModify && *argClass != "" {
 		targetDBInstance := selectModifyTarget(dbInstances)
 		fmt.Printf("%s DB インスタンス \x1b[31m%s\x1b[0m のインスタンスクラスを変更します. インスタンスクラスは \x1b[31m%s\x1b[0m です.\n", mega, targetDBInstance, *argClass)
 		fmt.Printf("処理を継続しますか? (y/n): ")
