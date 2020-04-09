@@ -47,9 +47,9 @@ export AWS_DEFAULT_REGION=ap-northeast-1
 # Get latest version
 v=$(curl -s 'https://api.github.com/repos/inokappa/rdstool/releases' | jq -r '.[0].tag_name')
 # For macOS
-$ wget https://github.com/oreno-tools/inokappa/releases/download/${v}/rdstool_darwin_amd64 -O ~/bin/rdstool && chmod +x ~/bin/rdstool
+$ wget https://github.com/inokappa/rdstool/releases/download/${v}/rdstool_darwin_amd64 -O ~/bin/rdstool && chmod +x ~/bin/rdstool
 # For Linux
-$ wget https://github.com/oreno-tools/inokappa/releases/download/${v}/rdstool_linux_amd64 -O ~/bin/rdstool && chmod +x ~/bin/rdstool
+$ wget https://github.com/inokappa/rdstool/releases/download/${v}/rdstool_linux_amd64 -O ~/bin/rdstool && chmod +x ~/bin/rdstool
 ```
 
 ## DB インスタンス一覧
