@@ -41,12 +41,23 @@ export AWS_REGION=ap-northeast-1
 export AWS_DEFAULT_REGION=ap-northeast-1
 ```
 
+## インストール
+
+```sh
+# Get latest version
+v=$(curl -s 'https://api.github.com/repos/inokappa/rdstool/releases' | jq -r '.[0].tag_name')
+# For macOS
+$ wget https://github.com/oreno-tools/inokappa/releases/download/${v}/rdstool_darwin_amd64 -O ~/bin/rdstool && chmod +x ~/bin/rdstool
+# For Linux
+$ wget https://github.com/oreno-tools/inokappa/releases/download/${v}/rdstool_linux_amd64 -O ~/bin/rdstool && chmod +x ~/bin/rdstool
+```
+
 ## DB インスタンス一覧
 
 クラスタに所属している DB インスタンスの一覧を取得したい場合, 以下のように実行します.
 
 ```shell
-$ bin/rdstool -instances
+$ rdstool -instances
 ```
 
 ## DB インスタンスのインスタンスクラス変更
@@ -54,7 +65,7 @@ $ bin/rdstool -instances
 DB インスタンスのインスタンスクラス変更は以下のように実行します.
 
 ```shell
-$ bin/rdstool -modify -class=db.r5.large
+$ rdstool -modify -class=db.r5.large
 ```
 
 ## DB インスタンス再起動
@@ -62,7 +73,7 @@ $ bin/rdstool -modify -class=db.r5.large
 DB インスタンスの再起動は以下のように実行します.
 
 ```shell
-$ bin/rdstool -restart
+$ rdstool -restart
 ```
 
 ## クラスタのフェイルオーバー
@@ -70,7 +81,7 @@ $ bin/rdstool -restart
 クラスタのフェイルオーバーは以下のように実行します.
 
 ```shell
-$ bin/rdstool -failover
+$ rdstool -failover
 ```
 
 ## 設定済みパラメータグループのパラメータと値の確認
@@ -78,7 +89,7 @@ $ bin/rdstool -failover
 DB インスタンスに設定されたパラメータグループのパラメータと値を客員するには, 以下のように実行します.
 
 ```shell
-bin/rdstool -param-name=${パラメータ名}
+$ rdstool -param-name=${パラメータ名}
 ```
 
 ## shared_buffers パラメータの変更
@@ -86,7 +97,7 @@ bin/rdstool -param-name=${パラメータ名}
 一部のパラメータについて, rdstool を使って変更することが出来ます. 現時点で動作確認しているのは, `shared_buffers` のみです. 以下のように実行します.
 
 ```shell
-$ bin/rdstool -param-name=shared_buffers -ratio=0.5 -modify
+$ rdstool -param-name=shared_buffers -ratio=0.5 -modify
 ```
 
 上記の例は, パラメータ `shared_buffers` をインスタンスの搭載メモリ 50% に指定しています.
