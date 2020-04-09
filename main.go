@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	AppVersion = "0.0.3"
+	AppVersion = "0.0.4"
 )
 
 var (
@@ -27,6 +27,7 @@ var (
 	argFailover   = flag.Bool("failover", false, "DB インスタンスのフェイルオーバーを開始.")
 	argInstances  = flag.Bool("instances", false, "クラスタの DB インスタンス一覧を取得.")
 	argInstance   = flag.String("instance", "", "DB インスタンス名を指定.")
+	argClass      = flag.String("class", "", "DB インスタンスクラスを指定.")
 	argCluster    = flag.String("cluster", "", "Aurora クラスタ名を指定.")
 	argRestart    = flag.Bool("restart", false, "DB インスタンスの再起動を実施.")
 	argParamGroup = flag.String("param-group", "", "DB パラメータグループの名前を指定")
@@ -95,6 +96,44 @@ func main() {
 		params := printParams(paramGroup, *argParamName)
 		printTable(params, "param")
 		os.Exit(0)
+	}
+
+	if !*argModify && *argClass != "" {
+		targetDBInstance := selectModifyTarget(dbInstances)
+		fmt.Printf("%s DB インスタンス \x1b[31m%s\x1b[0m のインスタンスクラスを変更します. インスタンスクラスは \x1b[31m%s\x1b[0m です.\n", mega, targetDBInstance, *argClass)
+		fmt.Printf("処理を継続しますか? (y/n): ")
+		var stdin string
+		fmt.Scan(&stdin)
+		switch stdin {
+		case "y", "Y":
+			dbInstanceModifyStatus := executeInstanceClassModify(targetDBInstance, *argClass)
+			if dbInstanceModifyStatus == "" {
+				fmt.Printf("DB インスタンスのクラス変更に失敗しました.")
+				os.Exit(1)
+			}
+			fmt.Printf("DB インスタンスのクラス変更中")
+			// 泣きの wait
+			for i := 0; i < 10; i++ {
+				fmt.Printf(".")
+				time.Sleep(time.Second * 1)
+			}
+			for {
+				st, _, _ := getInstanceStatus(targetDBInstance)
+				if st == "available" {
+					fmt.Printf("\nDB インスタンスクラス変更完了.\n")
+					os.Exit(0)
+				}
+				fmt.Printf(".")
+				time.Sleep(time.Second * 5)
+			}
+		case "n", "N":
+			fmt.Println("処理を停止します.")
+			os.Exit(0)
+		default:
+			fmt.Println("処理を停止します.")
+			os.Exit(0)
+		}
+		// printTable(dbInstances, "instance")
 	}
 
 	if *argFailover {
@@ -292,6 +331,28 @@ func restartDBInstance(dbInstance string, failover bool) string {
 	return st
 }
 
+// Modify DB Instance class
+func executeInstanceClassModify(instanceName string, instanceClass string) string {
+	input := &rds.ModifyDBInstanceInput{
+		DBInstanceIdentifier: aws.String(instanceName),
+		DBInstanceClass:      aws.String(instanceClass),
+		ApplyImmediately:     aws.Bool(true),
+	}
+
+	result, err := svc.ModifyDBInstance(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			fmt.Println(aerr.Error())
+		} else {
+			fmt.Println(err.Error())
+		}
+		return ""
+	}
+
+	st := *result.DBInstance.DBInstanceStatus
+	return st
+}
+
 // Failover DB Cluster
 func executeClusterFailover(clusterName string, targetDBInstance string) string {
 	input := &rds.FailoverDBClusterInput{
@@ -355,6 +416,26 @@ func getWriteInstance(dbInstances [][]string) string {
 		}
 	}
 	return writer
+}
+
+func selectModifyTarget(dbInstances [][]string) string {
+	var targets []string
+	for _, i := range dbInstances {
+		targets = append(targets, i[0])
+	}
+	prompt := promptui.Select{
+		Label: "変更する DB インスタンスを選択して下さい.",
+		Items: targets,
+	}
+
+	_, result, err := prompt.Run()
+
+	if err != nil {
+		fmt.Printf("Prompt failed %v\n", err)
+		return ""
+	}
+
+	return result
 }
 
 func selectFailoverTarget(dbInstances [][]string) string {
