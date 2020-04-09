@@ -21,7 +21,7 @@
 
 ちなみに, 以下は DB インスタンスのインスタンスクラスを変更している図です.
 
-
+![](https://github.com/inokappa/rdstool/blob/master/docs/images/rdstool1.png?raw=true)
 
 ## 出来ないこと
 
