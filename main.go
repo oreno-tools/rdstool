@@ -113,7 +113,7 @@ func main() {
 			}
 			fmt.Printf("DB インスタンスのクラス変更中")
 			// 泣きの wait
-			for i := 0; i < 10; i++ {
+			for i := 0; i < 59; i++ {
 				fmt.Printf(".")
 				time.Sleep(time.Second * 1)
 			}
