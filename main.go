@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	AppVersion = "0.0.4"
+	AppVersion = "0.0.5"
 )
 
 var (
@@ -118,7 +118,7 @@ func main() {
 				time.Sleep(time.Second * 1)
 			}
 			for {
-				st, _, _ := getInstanceStatus(targetDBInstance)
+				st, _, _, _ := getInstanceStatus(targetDBInstance)
 				if st == "available" {
 					fmt.Printf("\nDB インスタンスクラス変更完了.\n")
 					os.Exit(0)
@@ -137,10 +137,25 @@ func main() {
 	}
 
 	if *argFailover {
+		fmt.Printf("処理を継続しますか? (y/n): ")
+		var stdin string
+
+		fmt.Scan(&stdin)
+		switch stdin {
+		case "y", "Y":
+			fmt.Println("処理を継続します.")
+		case "n", "N":
+			fmt.Println("処理を停止します.")
+			os.Exit(0)
+		default:
+			fmt.Println("処理を停止します.")
+			os.Exit(0)
+		}
+
 		targetDBInstance := selectFailoverTarget(dbInstances)
 		fmt.Printf("%s DB クラスタ \x1b[31m%s\x1b[0m をフェイルーバーします. フェイルオーバー先は \x1b[31m%s\x1b[0m です.\n", mega, clusterName, targetDBInstance)
 		fmt.Printf("処理を継続しますか? (y/n): ")
-		var stdin string
+
 		fmt.Scan(&stdin)
 		switch stdin {
 		case "y", "Y":
@@ -151,7 +166,7 @@ func main() {
 			}
 			fmt.Printf("DB クラスタのフェイルオーバー実行中")
 			for {
-				st, _, _ := getInstanceStatus(targetDBInstance)
+				st, _, _, _ := getInstanceStatus(targetDBInstance)
 				dbInstances := getClusterInstances(clusterName)
 				w := getWriteInstance(dbInstances)
 				if st == "available" && w == targetDBInstance {
@@ -190,7 +205,7 @@ func main() {
 			}
 			fmt.Printf("DB インスタンスを再起動中")
 			for {
-				st, _, _ := getInstanceStatus(restartDBInstanceName)
+				st, _, _, _ := getInstanceStatus(restartDBInstanceName)
 				if st == "available" {
 					fmt.Printf("\nDB インスタンス再起動完了.\n")
 					os.Exit(0)
@@ -229,7 +244,6 @@ func main() {
 		case "y", "Y":
 			dbInstance := getWriteInstance(dbInstances)
 			fmt.Println("DB パラメータを更新します.")
-			modifyValue(paramGroup, *argParamName, latest_value)
 			fmt.Printf("DB パラメータ更新中")
 			for {
 				if getParameterStatus(dbInstance, paramGroup) == "pending-reboot" {
@@ -257,8 +271,7 @@ func main() {
 func printTable(data [][]string, t string) {
 	table := tablewriter.NewWriter(os.Stdout)
 	if t == "instance" {
-		// table.SetHeader([]string{"InstanceIdentifier", "InstanceStatus", "Writer", "ParameterApplyStatus", "ClusterParameterGroupStatus", "PromotionTier"})
-		table.SetHeader([]string{"InstanceIdentifier", "InstanceStatus", "Writer", "InstanceClass", "ParameterApplyStatus", "ClusterParameterGroupStatus"})
+		table.SetHeader([]string{"InstanceIdentifier", "InstanceStatus", "Writer", "InstanceClass", "AvailabilityZone", "ParameterApplyStatus", "ClusterParameterGroupStatus"})
 		for _, value := range data {
 			if value[2] == "true" {
 				for i, e := range value {
@@ -393,12 +406,13 @@ func getClusterInstances(clusterName string) [][]string {
 	var instances [][]string
 	for _, i := range result.DBClusters[0].DBClusterMembers {
 		// tier := strconv.FormatInt(*i.PromotionTier, 10)
-		st, cl, ps := getInstanceStatus(*i.DBInstanceIdentifier)
+		st, cl, az, ps := getInstanceStatus(*i.DBInstanceIdentifier)
 		instance := []string{
 			*i.DBInstanceIdentifier,
 			st,
 			strconv.FormatBool(*i.IsClusterWriter),
 			cl,
+			az,
 			ps,
 			*i.DBClusterParameterGroupStatus,
 			// tier,
@@ -480,7 +494,7 @@ func selectRestartTarget(dbInstances [][]string) string {
 	return result
 }
 
-func getInstanceStatus(dbInstance string) (string, string, string) {
+func getInstanceStatus(dbInstance string) (string, string, string, string) {
 	input := &rds.DescribeDBInstancesInput{
 		DBInstanceIdentifier: aws.String(dbInstance),
 	}
@@ -492,13 +506,14 @@ func getInstanceStatus(dbInstance string) (string, string, string) {
 		} else {
 			fmt.Println(err.Error())
 		}
-		return "", "", ""
+		return "", "", "", ""
 	}
 
 	st := *result.DBInstances[0].DBInstanceStatus
 	cl := *result.DBInstances[0].DBInstanceClass
+	az := *result.DBInstances[0].AvailabilityZone
 	ps := *result.DBInstances[0].DBParameterGroups[0].ParameterApplyStatus
-	return st, cl, ps
+	return st, cl, az, ps
 }
 
 func modifyValue(paramGroup string, paramName string, paramValue string) {
